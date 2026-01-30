@@ -671,6 +671,12 @@
             }
             input.value = "";
         }
+        else if (code === "payday") {
+            saveData.currency += 2000;
+            saveGame(); renderShop(); resetPreviewStats();
+            alert("PAYCHECK RECEIVED: +2000 BITS");
+            input.value = "";
+        }
         else {
             alert("INVALID CODE");
         }
