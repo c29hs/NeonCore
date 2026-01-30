@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEON CORE: CRITICAL WARNING UPDATE</title>
+    <title>NEON CORE: SECURED GOD MODE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
 
@@ -36,7 +36,7 @@
             top: 0; left: 0;
             width: 100%; height: 100%;
             pointer-events: none;
-            z-index: 8; /* Below UI, above game */
+            z-index: 8;
             background: radial-gradient(circle, transparent 50%, rgba(255, 0, 0, 0.9) 100%);
             opacity: 0;
             transition: opacity 0.5s;
@@ -69,10 +69,14 @@
         #health-container {
             width: 200px; height: 10px;
             background: #333; border: 1px solid #555; margin-top: 5px;
+            position: relative;
         }
         #health-fill {
             width: 100%; height: 100%; background: #0f0;
             box-shadow: 0 0 10px #0f0; transition: width 0.2s;
+        }
+        #health-text {
+            position: absolute; top: -15px; right: 0; font-size: 10px; color: #888;
         }
 
         /* WAVE POPUP */
@@ -204,7 +208,7 @@
 
         /* SHOP GRID */
         .shop-section-title { text-align: left; color: #888; border-bottom: 1px solid #333; margin: 20px 0 10px 0; padding-bottom: 5px; }
-        .shop-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .shop-item {
             border: 1px solid #444; padding: 15px; background: #080808; transition: 0.2s;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -260,7 +264,10 @@
         <div class="hud-item" id="wave-display">WAVE 1</div>
         <div class="hud-item" id="score-color">SCORE: <span id="score-val">0</span></div>
         <div class="hud-item" id="currency-display">BITS: <span id="bits-val">0</span></div>
-        <div id="health-container"><div id="health-fill"></div></div>
+        <div id="health-container">
+            <div id="health-fill"></div>
+            <div id="health-text">HP: 100/100</div>
+        </div>
     </div>
 
     <div id="wave-popup">WAVE CLEARED</div>
@@ -384,7 +391,8 @@
     const UPGRADE_ITEMS = [
         { id: 'fireRate', name: 'SIDE CANNONS', desc: 'Evolves Visuals + Fire Rate', baseCost: 150, scale: 1.6 },
         { id: 'damage', name: 'PLASMA CORE', desc: 'Increases Core Size', baseCost: 100, scale: 1.5 },
-        { id: 'speed', name: 'THRUSTERS', desc: 'Adds Engine Trails', baseCost: 100, scale: 1.5 }
+        { id: 'speed', name: 'THRUSTERS', desc: 'Adds Engine Trails', baseCost: 100, scale: 1.5 },
+        { id: 'health', name: 'NANO WEAVE', desc: 'Increases Hull Integrity', baseCost: 200, scale: 1.5 }
     ];
 
     const BLOCKLIST = ["ADMIN", "MOD", "SEX", "XXX", "PORN", "DAMN", "HELL", "CRAP", "ASS", "BUTT", "POOP", "FUCK", "SHIT", "NIGGA", "BITCH", "CUNT"];
@@ -404,24 +412,29 @@
     // --- SAVE SYSTEM ---
     const defaultData = {
         currency: 0,
-        upgrades: { damage: 1, speed: 1, fireRate: 1 },
+        upgrades: { damage: 1, speed: 1, fireRate: 1, health: 1 },
         skins: ['DEFAULT'],
         equippedSkin: 'DEFAULT',
+        bestScore: 0, 
         highScores: [] 
     };
     
-    let saveData = JSON.parse(localStorage.getItem('neonCoreVisualsV8')) || defaultData;
+    let saveData = JSON.parse(localStorage.getItem('neonCoreVisualsV9')) || defaultData;
+    
+    // BACKWARD COMPATIBILITY CHECKS
+    if(typeof saveData.bestScore === 'undefined') saveData.bestScore = 0;
     if(!saveData.highScores) saveData.highScores = [];
     if(!saveData.skins) { saveData.skins = ['DEFAULT']; saveData.equippedSkin = 'DEFAULT'; }
+    if(!saveData.upgrades.health) saveData.upgrades.health = 1;
 
     function saveGame() {
-        localStorage.setItem('neonCoreVisualsV8', JSON.stringify(saveData));
+        localStorage.setItem('neonCoreVisualsV9', JSON.stringify(saveData));
         updateUI();
     }
 
     function resetData() {
         if(confirm("Reset all progress and scores?")) {
-            localStorage.removeItem('neonCoreVisualsV8');
+            localStorage.removeItem('neonCoreVisualsV9');
             location.reload();
         }
     }
@@ -453,6 +466,23 @@
         ctx.fillStyle = actualColor; ctx.shadowBlur = 15; ctx.shadowColor = actualColor;
         ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-15, 10); ctx.lineTo(-10, 0); ctx.lineTo(-15, -10); ctx.fill();
 
+        // Health Armor Visual (Protective Ring)
+        if (stats.health > 1.2) {
+            ctx.strokeStyle = actualColor;
+            ctx.lineWidth = (stats.health - 1) * 2;
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            // Draw a hexagon shield
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI / 3);
+                const r = 25 + (stats.health * 2);
+                ctx.lineTo(Math.cos(angle)*r, Math.sin(angle)*r);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+
         // Cannon Evolution
         ctx.fillStyle = '#eee'; ctx.shadowBlur = 5;
         if (stats.fireRate > 1.2 && stats.fireRate <= 2.0) {
@@ -483,7 +513,7 @@
     const previewCanvas = document.getElementById('previewCanvas');
     const pCtx = previewCanvas.getContext('2d');
     let previewAnimationFrame;
-    let previewStats = { damage: 1, speed: 1, fireRate: 1 };
+    let previewStats = { damage: 1, speed: 1, fireRate: 1, health: 1 };
     let previewSkin = '#0ff';
     let previewMsg = "";
     let pBullets = [];
@@ -511,6 +541,7 @@
         if(id === 'fireRate') label = "CANNON EVOLUTION";
         if(id === 'damage') label = "CORE EVOLUTION";
         if(id === 'speed') label = "THRUSTER EVOLUTION";
+        if(id === 'health') label = "SHIELD EVOLUTION";
         previewMsg = "PREVIEW: " + label;
     }
 
@@ -619,8 +650,13 @@
         
         if (code === "neon123") {
             saveData.currency = 9999999;
-            SKIN_CATALOG.forEach(s => { if(!saveData.skins.includes(s.id)) saveData.skins.push(s.id); });
-            saveData.upgrades.damage = 3.5; saveData.upgrades.speed = 2.5; saveData.upgrades.fireRate = 3.5;
+            // ONLY UNLOCK NON-HIDDEN SKINS
+            SKIN_CATALOG.forEach(s => { 
+                if(!s.hidden && !saveData.skins.includes(s.id)) {
+                    saveData.skins.push(s.id); 
+                }
+            });
+            saveData.upgrades.damage = 3.5; saveData.upgrades.speed = 2.5; saveData.upgrades.fireRate = 3.5; saveData.upgrades.health = 3.5;
             saveGame(); renderShop(); resetPreviewStats();
             alert("GOD MODE ACTIVATED");
             input.value = "";
@@ -716,10 +752,18 @@
             const skinData = SKIN_CATALOG.find(s => s.id === saveData.equippedSkin) || SKIN_CATALOG[0];
             this.color = skinData.color;
             this.stats = { ...saveData.upgrades };
-            this.speed = 4 * this.stats.speed;
+            
+            this.speed = 3.5 * this.stats.speed;
+            
             this.fireDelay = 15 / this.stats.fireRate;
             this.damage = 10 * this.stats.damage;
-            this.angle = 0; this.maxHealth = 100; this.health = 100; this.lastShot = 0;
+            this.angle = 0; 
+
+            // HEALTH CALCULATION (Base 100 * Upgrade Multiplier)
+            this.maxHealth = Math.floor(100 * this.stats.health);
+            this.health = this.maxHealth;
+            
+            this.lastShot = 0;
         }
         update() {
             if(keys.w && this.y > 0) this.y -= this.speed;
@@ -763,6 +807,7 @@
             this.dead = false;
             this.angle = 0; this.rotation = 0;
             this.type = type;
+            this.isLoot = isLoot; 
 
             if (startX !== undefined && startY !== undefined) {
                 this.x = startX; this.y = startY;
@@ -771,12 +816,9 @@
                     this.y += (Math.random() - 0.5) * 120;
                 }
             } else {
-                // Default Spawning Logic (Edges)
                 if(Math.random()<0.5) { this.x = Math.random()<0.5 ? -30 : canvas.width+30; this.y = Math.random()*canvas.height; }
                 else { this.x = Math.random()*canvas.width; this.y = Math.random()<0.5 ? -30 : canvas.height+30; }
             }
-
-            this.isLoot = isLoot; 
 
             if (isLoot) {
                 this.type = 'LOOT'; this.radius = 12; this.health = 1; this.color = '#ffd700'; 
@@ -784,27 +826,30 @@
                 this.vx = (canvas.width/2 - this.x) * 0.005 + (Math.random()-0.5)*2;
                 this.vy = (canvas.height/2 - this.y) * 0.005 + (Math.random()-0.5)*2;
             } 
+            else if (this.type === 'ORB_BULLET') {
+                this.radius = 4; this.health = 1; this.color = '#f33'; this.val = 0;
+                const dx = player.x - this.x; const dy = player.y - this.y; 
+                const dist = Math.sqrt(dx*dx + dy*dy); const speed = 6;
+                this.vx = (dx / dist) * speed; this.vy = (dy / dist) * speed;
+            }
+            else if (this.type === 'TRAPEZOID') {
+                const waveMult = 1 + (currentWave * 0.1);
+                this.health = (40 + (currentWave * 5)) * waveMult; 
+                this.speed = 2.0 * waveMult;
+                this.radius = 18; this.color = '#f80'; this.val = 35;
+                this.fireTimer = 0;
+            }
             else if (this.type === 'HEXAGON') {
-                // HEALER: Swipes across screen horizontally at high speed
                 this.radius = 8; this.health = 1; this.color = '#0f0';
-                // Force X position to extreme left or right
                 this.y = Math.random() * (canvas.height - 100) + 50; 
-                if (Math.random() < 0.5) {
-                    this.x = -50; 
-                    this.vx = 1; // Moving Right
-                } else {
-                    this.x = canvas.width + 50;
-                    this.vx = -1; // Moving Left
-                }
-                this.vy = (Math.random() - 0.5) * 0.5; // Slight drift
-                // Speed same as Triangles (Rushers) -> Base 4.0 * WaveMult
+                if (Math.random() < 0.5) { this.x = -50; this.vx = 1; } 
+                else { this.x = canvas.width + 50; this.vx = -1; }
+                this.vy = (Math.random() - 0.5) * 0.5; 
                 const waveMult = 1 + (currentWave * 0.1); 
-                this.speed = (4.0 * waveMult) + 2; // +2 for extra swipe speed
+                this.speed = (4.0 * waveMult) + 2;
             }
             else {
-                // NORMAL ENEMIES
                 const waveMult = 1 + (currentWave * 0.1); 
-                
                 if (this.type === 'MINI') {
                     this.radius = 8; this.health = 1; this.speed = 3.5; this.color = '#3af'; this.val = 5;
                 }
@@ -819,76 +864,73 @@
                     if(this.speed > 8) this.speed = 8;
                     this.radius = 12; this.color = '#ff0'; this.val = 20;
                 } 
-                else { // CHASER
+                else { 
                     this.health = (20 + (currentWave * 5)) * waveMult;
                     this.speed = 1.5 * waveMult;
                     this.radius = 15; this.color = '#f0f'; this.val = 10;
                 }
             }
         }
+
         update() {
-            if (this.type === 'LOOT') {
-                this.x += this.vx * this.speed; this.y += this.vy * this.speed;
+            if (this.type === 'LOOT' || this.type === 'ORB_BULLET') {
+                if(this.type === 'ORB_BULLET') { this.x += this.vx; this.y += this.vy; } else { this.x += this.vx * this.speed; this.y += this.vy * this.speed; }
                 if(this.x < -100 || this.x > canvas.width+100 || this.y < -100 || this.y > canvas.height+100) this.dead = true;
+                if (this.type === 'ORB_BULLET') {
+                     const dx = player.x - this.x; const dy = player.y - this.y;
+                     if(Math.hypot(dx, dy) < player.radius + this.radius) { player.health -= 10; this.dead = true; createParticles(this.x, this.y, '#f33', 5); }
+                }
             } 
             else if (this.type === 'HEXAGON') {
-                this.x += this.vx * this.speed;
-                this.y += this.vy * this.speed;
-                // Kill if off screen
+                this.x += this.vx * this.speed; this.y += this.vy * this.speed;
                 if(this.x < -100 || this.x > canvas.width+100) this.dead = true;
                 this.rotation += 0.1;
             }
             else {
                 const dx = player.x - this.x; const dy = player.y - this.y; const dist = Math.sqrt(dx*dx + dy*dy);
                 this.angle = Math.atan2(dy, dx);
+                if(dist < player.radius + this.radius) { player.health -= 15; this.dead = true; createParticles(this.x, this.y, this.color, 10); }
                 
-                if(dist < player.radius + this.radius) { 
-                    player.health -= 15; 
-                    this.dead = true; 
-                    createParticles(this.x, this.y, this.color, 10); 
+                if (this.type === 'TRAPEZOID') {
+                    if (dist > 300) { this.x += Math.cos(this.angle) * this.speed; this.y += Math.sin(this.angle) * this.speed; }
+                    this.fireTimer++;
+                    if (this.fireTimer > 90) { enemies.push(new Enemy(false, 'ORB_BULLET', this.x, this.y)); this.fireTimer = 0; }
+                } else {
+                    this.x += Math.cos(this.angle) * this.speed; this.y += Math.sin(this.angle) * this.speed;
                 }
-                
-                this.x += Math.cos(this.angle) * this.speed; 
-                this.y += Math.sin(this.angle) * this.speed;
                 this.rotation += 0.05;
             }
         }
+
         draw() {
-            ctx.shadowBlur = (this.type === 'LOOT' || this.type === 'HEXAGON') ? 30 : 10; 
-            ctx.shadowColor = this.color; 
-            ctx.fillStyle = this.color;
-            
-            if (this.type === 'CHASER' || this.type === 'LOOT') {
+            ctx.shadowBlur = (this.type === 'LOOT' || this.type === 'HEXAGON' || this.type === 'ORB_BULLET') ? 20 : 10; 
+            ctx.shadowColor = this.color; ctx.fillStyle = this.color;
+            if (this.type === 'CHASER' || this.type === 'LOOT' || this.type === 'ORB_BULLET') {
                 ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.fill();
                 if(this.type === 'LOOT') { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI*2); ctx.fill(); }
             }
+            else if (this.type === 'TRAPEZOID') {
+                ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+                ctx.beginPath(); ctx.moveTo(10, -5); ctx.lineTo(10, 5); ctx.lineTo(-15, 15); ctx.lineTo(-15, -15); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = "#fff"; ctx.fillRect(8, -2, 6, 4); ctx.restore();
+            }
             else if (this.type === 'HEXAGON') {
                 ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
-                ctx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    ctx.lineTo(this.radius * Math.cos(i * Math.PI / 3), this.radius * Math.sin(i * Math.PI / 3));
-                }
-                ctx.closePath(); ctx.fill();
-                // Inner Detail
-                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
-                ctx.restore();
+                ctx.beginPath(); for (let i = 0; i < 6; i++) { ctx.lineTo(this.radius * Math.cos(i * Math.PI / 3), this.radius * Math.sin(i * Math.PI / 3)); }
+                ctx.closePath(); ctx.fill(); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill(); ctx.restore();
             }
             else if (this.type === 'RUSHER') {
                 ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
-                ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-10, -10); ctx.fill();
-                ctx.restore();
+                ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-10, -10); ctx.fill(); ctx.restore();
             }
             else if (this.type === 'TANK') {
                 ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
                 ctx.fillRect(-this.radius, -this.radius, this.radius*2, this.radius*2);
-                ctx.fillStyle = 'rgba(255,255,255,0.2)'; 
-                ctx.fillRect(-this.radius/2, -this.radius/2, this.radius, this.radius);
-                ctx.restore();
+                ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(-this.radius/2, -this.radius/2, this.radius, this.radius); ctx.restore();
             }
             else if (this.type === 'MINI') {
                 ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation * 2);
-                ctx.fillRect(-this.radius, -this.radius, this.radius*2, this.radius*2);
-                ctx.restore();
+                ctx.fillRect(-this.radius, -this.radius, this.radius*2, this.radius*2); ctx.restore();
             }
         }
     }
@@ -935,48 +977,17 @@
             let type = 'CHASER';
             let roll = Math.random();
 
-            // HEALING HEXAGON LOGIC: Wave 4 Start
-            if (currentWave === 4 && enemiesSpawnedInWave < 6) {
-                type = 'HEXAGON'; // Spawn a volley of healers
-            }
-            else if (currentWave === 1) {
-                type = 'CHASER';
-            }
-            else if (currentWave === 2) {
-                type = (roll < 0.2) ? 'RUSHER' : 'CHASER';
-            }
-            else if (currentWave === 3) {
-                type = (roll < 0.4) ? 'RUSHER' : 'CHASER';
-            }
-            else if (currentWave === 4) {
-                // Rest of wave 4
-                type = (roll < 0.8) ? 'RUSHER' : 'CHASER';
-            }
-            else if (currentWave === 5) {
-                type = (roll < 0.2) ? 'TANK' : 'CHASER';
-            }
-            else if (currentWave === 6) {
-                if(roll < 0.1) type = 'TANK';
-                else if(roll < 0.5) type = 'RUSHER';
-                else type = 'CHASER';
-            }
-            else if (currentWave === 7) {
-                type = (roll < 0.6) ? 'RUSHER' : 'CHASER';
-            }
-            else if (currentWave === 8) {
-                if(roll < 0.3) type = 'TANK';
-                else type = 'RUSHER';
-            }
-            else if (currentWave === 9) {
-                if(roll < 0.2) type = 'TANK';
-                else if(roll < 0.7) type = 'RUSHER';
-                else type = 'CHASER';
-            }
-            else {
-                if (roll < 0.15 + (currentWave * 0.01)) type = 'TANK';
-                else if (roll < 0.6) type = 'RUSHER';
-                else type = 'CHASER';
-            }
+            if (currentWave === 6) { if(roll < 0.6) type = 'TRAPEZOID'; else type = 'RUSHER'; }
+            else if (currentWave === 4 && enemiesSpawnedInWave < 6) { type = 'HEXAGON'; }
+            else if (currentWave === 1) { type = 'CHASER'; }
+            else if (currentWave === 2) { type = (roll < 0.2) ? 'RUSHER' : 'CHASER'; }
+            else if (currentWave === 3) { type = (roll < 0.4) ? 'RUSHER' : 'CHASER'; }
+            else if (currentWave === 4) { type = (roll < 0.8) ? 'RUSHER' : 'CHASER'; }
+            else if (currentWave === 5) { type = (roll < 0.2) ? 'TANK' : 'CHASER'; }
+            else if (currentWave === 7) { if (roll < 0.3) type = 'TRAPEZOID'; else type = 'RUSHER'; }
+            else if (currentWave === 8) { if(roll < 0.3) type = 'TANK'; else type = 'RUSHER'; }
+            else if (currentWave >= 9) { if(roll < 0.2) type = 'TANK'; else if(roll < 0.4) type = 'TRAPEZOID'; else if(roll < 0.7) type = 'RUSHER'; else type = 'CHASER'; }
+            else { if (roll < 0.15 + (currentWave * 0.01)) type = 'TANK'; else if (roll < 0.3) type = 'TRAPEZOID'; else if (roll < 0.6) type = 'RUSHER'; else type = 'CHASER'; }
 
             enemies.push(new Enemy(false, type));
             enemiesSpawnedInWave++;
@@ -984,9 +995,7 @@
     }
 
     function checkWaveStatus() {
-        // Count enemies that are NOT Loot and NOT Healers (Hexagons) for clearing wave
-        const enemiesAlive = enemies.filter(e => !e.isLoot && e.type !== 'HEXAGON').length;
-        
+        const enemiesAlive = enemies.filter(e => !e.isLoot && e.type !== 'HEXAGON' && e.type !== 'ORB_BULLET').length;
         if (enemiesSpawnedInWave >= waveQuota && enemiesAlive === 0 && waveIntermission === 0) {
             showWavePopup();
             sessionCurrency += 50;
@@ -994,13 +1003,9 @@
             showFloatText("+50 WAVE BONUS", canvas.width/2, canvas.height/2 + 50);
             waveIntermission = 180; 
         }
-
         if (waveIntermission > 0) {
             waveIntermission--;
-            if (waveIntermission === 1) {
-                currentWave++;
-                setupWave();
-            }
+            if (waveIntermission === 1) { currentWave++; setupWave(); }
         }
     }
 
@@ -1029,19 +1034,15 @@
                     if(e.health <= 0 && !e.dead) {
                         e.dead = true; 
                         createParticles(e.x, e.y, e.color, 15);
-
-                        if (e.type === 'TANK') {
-                            for(let k=0; k<6; k++) enemies.push(new Enemy(false, 'MINI', e.x, e.y));
-                        }
-
+                        if (e.type === 'TANK') { for(let k=0; k<6; k++) enemies.push(new Enemy(false, 'MINI', e.x, e.y)); }
                         if(e.type === 'HEXAGON') {
-                            // HEAL EFFECT
-                            player.health = Math.min(player.health + 15, player.maxHealth);
-                            showFloatText("+15 HP", e.x, e.y, '#0f0');
+                            player.health = Math.min(player.health + (player.maxHealth * 0.15), player.maxHealth);
+                            showFloatText("+HP", e.x, e.y, '#0f0');
                         }
                         else if(e.isLoot) {
                             sessionCurrency += 25; saveData.currency += 25; 
                             showFloatText("+25 BITS", canvas.width/2, canvas.height/2);
+                        } else if(e.type === 'ORB_BULLET') {
                         } else {
                             score += e.val;
                             if(Math.random() < 0.05) { sessionCurrency += 5; saveData.currency += 5; showFloatText("+5", e.x, e.y); }
@@ -1056,12 +1057,16 @@
 
         document.getElementById('score-val').innerText = Math.floor(score);
         document.getElementById('bits-val').innerText = sessionCurrency;
-        document.getElementById('health-fill').style.width = Math.max(0, (player.health/player.maxHealth * 100)) + "%";
+        
+        // Update Health Bar and Text
+        const pct = Math.max(0, (player.health/player.maxHealth * 100));
+        document.getElementById('health-fill').style.width = pct + "%";
+        document.getElementById('health-text').innerText = `${Math.floor(Math.max(0, player.health))} / ${player.maxHealth}`;
+
         document.getElementById('score-color').style.color = (player.color === 'RAINBOW_EFFECT') ? getRainbowColor() : player.color;
         
-        // --- LOW HEALTH VISUAL CHECK ---
         const vignette = document.getElementById('low-health-vignette');
-        if (player.health <= 15) {
+        if (player.health <= (player.maxHealth * 0.2)) {
             vignette.classList.add('critical-health-active');
         } else {
             vignette.classList.remove('critical-health-active');
@@ -1071,13 +1076,10 @@
     }
 
     function startGame() {
-        // Clear any old effects
         document.getElementById('low-health-vignette').classList.remove('critical-health-active');
-
         player = new Player(); projectiles = []; enemies = []; particles = [];
         score = 0; sessionCurrency = 0; frames = 0;
         currentWave = 1; setupWave(); waveIntermission = 0;
-        
         document.getElementById('main-menu').style.display = 'none';
         document.getElementById('game-over-menu').style.display = 'none';
         document.getElementById('leaderboard-menu').style.display = 'none';
@@ -1085,19 +1087,22 @@
     }
 
     function gameOver() {
-        gameState = 'GAMEOVER'; saveGame();
+        gameState = 'GAMEOVER'; 
+        const finalScore = Math.floor(score);
+        if (finalScore > saveData.bestScore) {
+            saveData.bestScore = finalScore;
+        }
+        saveGame();
         
-        // Remove low health effect so it doesn't pulse over the menu
         document.getElementById('low-health-vignette').classList.remove('critical-health-active');
-
         document.getElementById('game-over-menu').style.display = 'block';
         document.getElementById('go-currency').innerText = sessionCurrency;
         document.getElementById('go-wave').innerText = "WAVE " + currentWave;
-        document.getElementById('final-score-display').innerText = "SCORE: " + Math.floor(score);
+        document.getElementById('final-score-display').innerText = "SCORE: " + finalScore;
         document.getElementById('go-choice-container').style.display = 'block';
         document.getElementById('high-score-input').style.display = 'none';
         const btn = document.getElementById('submit-btn-trigger');
-        if(isHighScore(Math.floor(score))) { btn.innerText = "SUBMIT NEW RECORD"; btn.disabled = false; } else { btn.innerText = "SCORE TOO LOW"; btn.disabled = true; }
+        if(isHighScore(finalScore)) { btn.innerText = "SUBMIT NEW RECORD"; btn.disabled = false; } else { btn.innerText = "SCORE TOO LOW"; btn.disabled = true; }
     }
 
     function returnToMenu() {
@@ -1137,8 +1142,7 @@
     
     function updateUI() { 
         document.getElementById('menu-currency').innerText = saveData.currency;
-        const bestScore = saveData.highScores.length > 0 ? saveData.highScores[0].score : 0;
-        document.getElementById('menu-best-score').innerText = bestScore;
+        document.getElementById('menu-best-score').innerText = saveData.bestScore;
     }
     updateUI();
 </script>
